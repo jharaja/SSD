@@ -1,0 +1,25 @@
+/* Whenever a contacts description is updated then its Parent Account's description should also get updated*/
+
+trigger contactdescription on contact (after insert, after update){
+    map<Id,Account> accmap = new map<Id,Account>();
+    list<Account> acclisttoupdate = new list<Account>();
+    for(contact con: trigger.new){
+        if(trigger.isAfter){
+            if(con.description != null && con.AccountId !=null && 
+			(trigger.isupdate && con.description != trigger.oldmap.get(con.id).description || trigger.isInsert)){
+                accmap.put(con.AccountId,con.Account);
+            }
+        }
+    }
+    if(!accmap.isEmpty()){
+        for(contact con:trigger.new){
+            Account acc = new Account();
+            acc.id = con.AccountId;
+            acc.description = con.description;
+            acclisttoupdate.add(acc);
+        }
+        if(!acclisttoupdate.isEmpty()){
+            update acclisttoupdate;
+        }
+    }
+}
