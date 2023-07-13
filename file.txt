@@ -1,1 +1,24 @@
-Raja This Side 
+/*Whenever Accounts Phone field is updated then all related contacts Phone field 
+Should also get updated with Parents Account Phone*/
+
+
+trigger phoneupdated on Account (after update){
+	map<Id,Account> accmap = new map<Id,Account>();
+	list<contact> contactsToUpdate = new list<contact>();
+	for(Account acc:trigger.new){
+		if(acc.phone != '' && trigger.oldmap.get(acc.Id).phone != acc.phone){
+			accmap.put(acc.id, acc);
+		}
+	}
+	if(!accmap.IsEmpty()){
+		list<contact> conlist = [SELECT Id,Phone, AccountId from contact where AccountId IN:accmap.keyset()];
+		
+		for(contact con: conlist){
+			con.phone =accmap.get(con.AccountId).Phone; 
+			contactsToUpdate.add(con);
+		}
+		if(!contactsToUpdate.isEmpty()){
+			update contactsToUpdate;
+		}
+	}
+}
