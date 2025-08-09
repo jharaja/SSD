@@ -1,0 +1,32 @@
+trigger RestrictDuplicateEmail on Contact (before Insert, before update){
+    Set<string> emailSet = new set<string>();
+    set<string> existingemail = new set<string>();
+    set<string> duplinsametrans = new set<string>();
+    for(Contact con:trigger.new){
+        if(con.Email!=Null && (trigger.isInsert || (trigger.isAfter && con.Email!=trigger.oldMap.get(con.Id).Email))){
+            emailSet.add(con.Email);
+        }
+    }
+    if(!emailSet.isEmpty()){
+        List<contact> existingcon = [SELECT Id, Email from Contact Where Email!=Null AND email In:emailSet];        
+        if(!existingcon.isEmpty()){
+            for(contact con:existingcon){
+                existingemail.add(con.Email);
+            }
+        }
+    }
+    for(contact con:trigger.new){
+        if(existingemail.contains(con.email)){
+            con.email.addError('Duplicate Email Already Exist');
+        }
+    }
+    
+    //Duplicate found in Same Transaction
+    for(contact con:trigger.new){
+        if(duplinsametrans.contains(con.Email)){
+            con.Email.addError('Duplicate Found in Same transaction');
+        }else {
+            duplinsametrans.add(con.email);
+        }
+    }
+}
