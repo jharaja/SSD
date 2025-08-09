@@ -1,0 +1,33 @@
+trigger EnforceSinglePrimaryContact on Contact (after insert, after update) {
+    Set<Id> accountIds = new Set<Id>();
+
+    // Step 1: Find all Accounts where primary was set to true in this transaction
+    for (Contact con : Trigger.new) {
+        if (con.Primary_Contact__c == true &&
+            (Trigger.isInsert || 
+             (Trigger.isUpdate && Trigger.oldMap.get(con.Id).Primary_Contact__c != true)) &&
+            con.AccountId != null) {
+            accountIds.add(con.AccountId);
+        }
+    }
+
+    // Step 2: Query other primary contacts for those Accounts
+    if (!accountIds.isEmpty()) {
+        List<Contact> contactsToUncheck = [
+            SELECT Id, Primary_Contact__c, AccountId
+            FROM Contact
+            WHERE AccountId IN :accountIds
+            AND Primary_Contact__c = true
+            AND Id NOT IN :Trigger.newMap.keySet()
+        ];
+
+        // Step 3: Uncheck them
+        for (Contact c : contactsToUncheck) {
+            c.Primary_Contact__c = false;
+        }
+
+        if (!contactsToUncheck.isEmpty()) {
+            update contactsToUncheck;
+        }
+    }
+}
