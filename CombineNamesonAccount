@@ -1,0 +1,35 @@
+trigger CombineNamesonAccount on Contact (after insert, after update){
+    set<Id> accId = new set<Id>();
+    Map<Id,List<string>> conMap = new Map<Id,List<string>>();
+    List<Account> acclisttoUpdate = new list<Account>();
+    for(contact con:trigger.new){
+        if(con.AccountId!=Null){
+            accId.add(con.AccountId);
+        }
+    }
+    if(!accId.isEmpty()){
+        list<Contact> conList = [SELECT AccountId, Name from Contact Where AccountId!= Null AND AccountId IN:accId];
+        if(!conList.isEmpty()){
+            for(Contact con:conList){
+                if(!conMap.containsKey(con.AccountId)){
+                    conMap.put(con.AccountId,new list<string>());
+                }
+                conMap.get(con.AccountId).add(con.Name);
+            }
+        }
+    }
+    for(Id acntId:accId){        
+        if(conMap.containsKey(acntId)){
+            Account acc = new Account();
+            acc.Id = acntId;
+            List<String> contactNames = conMap.get(acntId);
+            if(!contactNames.isEmpty()){
+                acc.All_Contact_Names__c = string.join(contactNames, '\n');
+                acclisttoUpdate.add(acc);
+            }            
+        }
+    }
+    if(!acclisttoUpdate.isEmpty()){
+        update acclisttoUpdate;
+    }
+}
