@@ -1,0 +1,31 @@
+trigger countcontact on Contact (after insert, after update){
+	set<Id> accIds = new set<Id>();
+	Map<Id,Integer> accMap = new Map<Id,Integer>();
+	list<Account> acclisttoUpdate = new List<Account>();
+	for(contact con: trigger.new){
+		if(con.AccountId!=Null){
+			accIds.add(con.AccountId);
+		}
+	}
+	if(!accIds.isEmpty()){
+		List<AggregateResult> aggrslt = [SELECT AccountId, Count(Id) countcon from Contact Where AccountId IN:accIds GROUP BY AccountId];
+		
+		if(!aggrslt.isEmpty()){
+			for(AggregateResult ar:aggrslt){
+				accMap.put((Id)ar.get('AccountId'), (Integer)ar.get('countcon'));
+			}
+		}
+	}
+	
+	for(Id accId:accIds){
+		if(accMap.containsKey(accIds)){
+			Account acc = new Account();
+			acc.Id = accId;
+			acc.count__c = accMap.get(accId);
+			acclisttoUpdate.add(acc);
+		}
+	}
+	if(!AcclisttoUpdate.isEmpty()){
+		update acclisttoUpdate;
+	}
+}
