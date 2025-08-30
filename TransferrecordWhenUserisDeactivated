@@ -1,0 +1,39 @@
+trigger Transferrecord on User (after update) {
+    set<Id> userId = new set<Id>();
+    for(User ur:trigger.new){
+        if(ur.isActive!=true && trigger.oldMap.get(ur.Id).isActive!=ur.isActive){
+            userId.add(ur.Id);
+        }
+    }
+    if(!userId.isEmpty()){
+        AssignRecords.updaterecords(userId);
+    }
+}
+
+// Future Method 
+
+public class AssignRecords {
+
+    @future
+    public static void updaterecords(set<Id> userId){
+        Map<Id,Id> userandManagerIds = new Map<Id,Id>();
+        List<case> casetoUpdate = new List<Case>();
+        list<User> uz = [SELECT Id, ManagerId from user where Id IN:userId];
+        for(User ur:uz){
+            userandManagerIds.put(ur.Id,ur.ManagerId);
+        }
+        List<Case> caselist = [SELECT Id, caseNumber, Owner.name from case where Owner.Id IN:userandManagerIds.keySet()];
+        
+        if(!caselist.isEmpty()){
+            for(Case cs:caselist){
+                cs.ownerId = userandManagerIds.get(cs.ownerId);
+                casetoUpdate.add(cs);
+            }
+        }
+        if(!casetoUpdate.isEmpty()){
+            update casetoUpdate;
+        }
+        
+        
+    }
+}
