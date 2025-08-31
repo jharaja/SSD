@@ -1,0 +1,55 @@
+//Whenever the case field Notify is Updated we are marking the Account and Primary Contact as Active
+
+
+
+trigger CaseTrigger on Case (after update) {
+    UpdateAccountandContact.updaterelatedrecords(trigger.new,trigger.oldMap);
+}
+
+
+public class UpdateAccountandContact {
+    public static void updaterelatedrecords(List<Case> cslist, Map<Id,case> oldMap){
+        set<Id> accountIds = new set<Id>();
+        List<Account> accounttoUpdate = new List<Account>();
+        List<Contact> contacttoUpdate = new List<Contact>();
+        list<Contact> conList = new List<contact>();
+        Map<Id,Contact> accountToContact = new Map<Id,Contact>();
+        for(Case cs:cslist){
+            if(cs.AccountId!= Null && cs.Notify__c!=Null && oldMap.get(cs.Id).Notify__c!=cs.Notify__c){
+                accountIds.add(cs.AccountId);
+            }
+        }
+        if(!accountIds.isEmpty()){
+            conList = [SELECT Id,Name,Primary_Contact__c,isActive__c,AccountId from Contact 
+                       Where AccountId IN: accountIds AND Primary_Contact__c=true AND isActive__c=False];
+            
+            if(!conList.isEmpty()){
+                for(Contact con:conList){
+                    accountToContact.put(con.AccountId,con);
+                }
+            }
+        }
+        
+        for(Id accId:accountIds){
+            Account acc = new Account();
+            acc.Id= accId;
+            if(acc.Active__c!='Yes'){
+                acc.Active__c ='Yes';  
+            }            
+            accounttoUpdate.add(acc);            
+        }
+        
+        for(Contact con:conList){
+            if(con.isActive__c!=true){
+                con.isActive__c= True;
+                contacttoUpdate.add(con);
+            }
+        }
+        if(!contacttoUpdate.isEmpty()){
+            update contacttoUpdate;
+        }if(!accounttoUpdate.isEmpty()){
+            update accounttoUpdate;
+        }
+        
+    }
+}
