@@ -1,0 +1,38 @@
+//Trigger to prevent Multiple opportunity creation for Same Account
+//within a day or in Single Transaction
+
+trigger AvoidOpportunityCreation on Opportunity (before insert){
+    // DateTime lasttwentyfourhours = System.now().addHours(-24);
+    set<Id> accountId = new set<Id>();
+    set<Id> accIds =  new set<Id>();
+    Map<Id,Opportunity> accountToOpportunity = new Map<Id,Opportunity>();
+    for(Opportunity opp:trigger.new){
+        if(opp.AccountId!=Null){
+            accountId.add(opp.AccountId);
+        }
+    }
+    if(!accountId.isEmpty()){
+        List<Opportunity> oppList = [SELECT Id,Name, AccountId from Opportunity 
+                                     Where AccountId IN: accountId and createddate >=:System.now().addHours(-24)];
+        
+        if(!oppList.isEmpty()){
+            for(opportunity opp:oppList){
+                accountToOpportunity.put(opp.AccountId,opp);
+            }
+        }
+    }
+    
+    for(Opportunity opp:trigger.new){
+        if(opp.AccountId!=Null){
+            if(accIds.contains(opp.AccountId)){
+                opp.addError('An Opportunity has been created in the same Transaction');
+            }else{
+                accIds.add(opp.AccountId);
+            }
+            
+            if(accountToOpportunity.containsKey(opp.AccountId)){
+                opp.addError('An Opportunity has been created in Past 24 Hours');
+            }
+        }  
+    }
+}
