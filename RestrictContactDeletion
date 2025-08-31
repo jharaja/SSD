@@ -1,0 +1,20 @@
+trigger RestrictContactDeletion on Account (before delete) {
+    set<Id> accIds = new set<Id>();
+    List<Contact> contactToUpdate = new List<Contact>();
+    for(Account acc:trigger.old){
+        accIds.add(acc.Id);
+    }
+    if(!accIds.isEmpty()){
+        List<Contact> conList = [SELECT AccountId, Name, Id from Contact 
+                                 Where AccountId!= Null AND AccountId IN:accIds];
+        if(!conList.isEmpty()){
+            for(Contact con:conList){
+                con.AccountId = Null;
+                contactToUpdate.add(con);
+            }
+        }
+    }
+    if(!contactToUpdate.isEmpty()){
+        update contactToUpdate;
+    }
+}
