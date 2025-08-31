@@ -1,0 +1,25 @@
+trigger AccountTrigger on Account (before insert, before update) {
+	set<Id> accIds = new set<Id>();
+    Map<Id,string> lastmodifiedby = new Map<Id,string>();
+    DateTime oneHourAgo = System.now().addHours(-1);
+    for(Account acc:trigger.new){
+        accIds.add(acc.Id);
+        system.debug('raja@@@1 '+accIds);
+    }
+    
+    if(!accIds.isEmpty()){
+        list<Account> acclist = [SELECT Id, Name, Lastmodifieddate, LastModifiedById, LastModifiedBy.name from Account Where Id IN:accIds AND Lastmodifieddate >= :oneHourAgo];
+        
+        if(!acclist.isEmpty()){
+            for(Account acc:acclist){
+                system.debug('raja@@@2 '+acc.Lastmodifieddate);
+                lastmodifiedby.put(acc.LastModifiedById, acc.LastModifiedBy.name); 
+            }
+        }
+    }
+    for(Account acc:trigger.new){
+        if(lastmodifiedby.containsKey(UserInfo.getUserId())){
+            acc.addError('The Current user has already Updated a record in Past 1 hour');
+        }
+    }
+}
