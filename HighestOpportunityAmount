@@ -1,0 +1,31 @@
+trigger HighestOpportunityAmount on Opportunity (after insert, after update){
+	set<Account> accountIdSet = new set<Id>();
+	Map<Id, Opportunity> accountToOpportunity = new map<Id,Opportunity>();
+	List<Account> acclistToUpdate = new List<Account>();
+	//Here we collected the AccountId of respective Opportunity
+	for(Opportunity opp:trigger.new){
+		 if(opp.AccountId!=Null && opp.Amount!=Null){
+			 accountIdSet.add(opp.AccountId);
+		 }
+	}
+	if(!accountIdSet.isEmpty()){
+		List<Opportunity> existingOppList = [SELECT Id, AccountId, Amount__c from Opportunity Where Amount!=Null AND AccountId IN:accountIdSet];
+		
+		if(!existingOppList.isEmpty()){
+			for(Opportunity opp: existingOppList){
+				if(!accountToOpportunity.containsKey(opp.AccountId) || opp.Amount > accountToOpportunity.get(opp.AccountId).Amount ){
+					accountToOpportunity.put(opp.AccountId, opp);
+				}
+			}
+		}
+	}
+	for(Id accountIds :accountIdSet){
+		Account acc = new Account();
+		acc.Id = accountIds;
+		acc.description = accountToOpportunity.get(accountIds).Name;
+		acclistToUpdate.add(acc);
+	}
+	if(!acclistToUpdate.isEmpty()){
+		update acclistToUpdate;
+	}
+}
