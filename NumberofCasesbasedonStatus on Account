@@ -1,0 +1,54 @@
+trigger NumberofCasesbasedonStatus on Case (after insert, after update){
+    set<Id> accIdSet = new set<Id>();
+    Map<Id,List<Case>> accountToCase = new Map<Id,List<Case>>();
+    Map<Id,Integer> accountToNewstatus = new Map<Id,Integer>();
+    Map<Id,Integer> accountToWorkingstatus = new Map<Id,Integer>();
+    Map<Id,Integer> accountToEscalatedstatus = new Map<Id,Integer>();
+    List<Account> accountsToUpdate = new List<Account>();
+    for(Case csobj:trigger.new){
+        if(csobj.AccountId!=Null && csobj.status!=trigger.oldMap.get(csobj.Id).status){
+            accIdSet.add(csobj.AccountId);
+        }
+    }
+    if(!accIdSet.isEmpty()){
+        List<Case> caseList = [SELECT AccountId, Id, Status, Account.Total_Escalated_Cases__c, Account.Total_New_Cases__c, Account.Total_Working_Cases__c 
+                               From Case Where AccountId IN:accIdSet];
+        
+        if(!caseList.isEmpty()){
+            for (Case cas : caseList) {
+                if (cas.Status !=Null && cas.Status == 'New') {
+                    if (accountToNewstatus.containsKey(cas.AccountId)) {
+                        accountToNewstatus.put(cas.AccountId, accountToNewstatus.get(cas.AccountId) + 1);
+                    } else {
+                        accountToNewstatus.put(cas.AccountId, 1);
+                    }
+                } else if (cas.Status !=Null && cas.Status == 'Working') {
+                    if (accountToWorkingstatus.containsKey(cas.AccountId)) {
+                        accountToWorkingstatus.put(cas.AccountId, accountToWorkingstatus.get(cas.AccountId) + 1);
+                    } else {
+                        accountToWorkingstatus.put(cas.AccountId, 1);
+                    }
+                } else if (cas.Status !=Null && cas.Status == 'Escalated') {
+                    if (accountToEscalatedstatus.containsKey(cas.AccountId)) {
+                        accountToEscalatedstatus.put(cas.AccountId, accountToEscalatedstatus.get(cas.AccountId) + 1);
+                    } else {
+                        accountToEscalatedstatus.put(cas.AccountId, 1);
+                    }
+                }
+            }
+        }
+    }
+    for (Id accId : accIdSet) {
+        Account acc = new Account(
+            Id = accId,
+            Total_New_Cases__c       = accountToNewstatus.containsKey(accId) ? accountToNewstatus.get(accId) : 0,
+            Total_Working_Cases__c   = accountToWorkingstatus.containsKey(accId) ? accountToWorkingstatus.get(accId) : 0,
+            Total_Escalated_Cases__c = accountToEscalatedstatus.containsKey(accId) ? accountToEscalatedstatus.get(accId) : 0
+        );
+        accountsToUpdate.add(acc);
+    }
+    
+    if (!accountsToUpdate.isEmpty()) {
+        update accountsToUpdate;
+    }
+}
