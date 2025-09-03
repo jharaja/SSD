@@ -1,0 +1,41 @@
+trigger DistributeAmountToOpportunity on Account(after update, after insert){
+    set<Id> accIdSet = new set<Id>();
+    Map<Id,List<Opportunity>> accountToOpp = new Map<Id,List<Opportunity>>();
+    List<Opportunity> opptoUpdate = new List<Opportunity>();
+    Map<Id,Decimal> accountAmount = new Map<Id,Decimal>();
+    for(Account acc:trigger.new){
+        if(acc.Amount__c!=Null && (trigger.isInsert|| (trigger.isUpdate && trigger.oldMap.get(acc.Id).Amount__c!=acc.Amount__c))){
+            accIdSet.add(acc.Id);
+        }
+    }
+    if(!accIdSet.isEmpty()){
+        List<Opportunity> OppList = [SELECT Id, AccountId, Account.Amount__c from Opportunity Where AccountId IN:accIdSet AND Account.Amount__c!=Null];
+        
+        if(!OppList.isEmpty()){
+            for(Opportunity opp:OppList){
+                if(!accountToOpp.containsKey(opp.AccountId) && opp.Account.Amount__c!= Null){
+                    accountToOpp.put(opp.AccountId, new List<Opportunity>());
+                    accountAmount.put(opp.AccountId, opp.Account.Amount__c);
+                }
+                accountToOpp.get(opp.AccountId).add(opp);
+            }
+        }
+    }
+    list<opportunity> oppListExisting = new List<Opportunity>();
+    for (List<Opportunity> opps : accountToOpp.values()) {
+        oppListExisting.addAll(opps);
+    }
+    for(Opportunity opp1:oppListExisting){
+        if(accountToOpp.containsKey(opp1.AccountId)){
+            Decimal Amount = accountAmount.get(opp1.AccountId);
+            Integer Count = accountToOpp.get(opp1.AccountId).size();
+            opp1.Avg_Amount__c = Amount/Count;
+            opptoUpdate.add(opp1);
+            
+        }
+    }
+    if(!opptoUpdate.isEmpty()){
+        update opptoUpdate;
+    }
+    
+}
