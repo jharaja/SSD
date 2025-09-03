@@ -1,0 +1,49 @@
+trigger CaseTrigger on Case (after update, after insert) {
+    set<Id> accountIdSet = new set<Id>();
+    Map<Id,List<Case>> accountToCase = new Map<Id,List<Case>>();
+    List<Account> acclisttoUpdate =  new List<Account>();
+    for(Case cs:trigger.new){
+        if(trigger.isAfter){
+            if(cs.AccountId!= Null && cs.Status=='Closed' && (trigger.isInsert || trigger.isUpdate)){
+            accountIdSet.add(cs.AccountId);
+        } 
+        }
+    }
+    if(!accountIdSet.isEmpty()){
+        List<Case> existingCases = [SELECT Id, AccountId, Status from Case Where AccountId IN:accountIdSet and status= 'Closed'];
+        
+        if(!existingCases.isEmpty()){
+            for(Case cas:existingCases){
+                if(!accountToCase.containsKey(cas.AccountId)){
+                    accountToCase.put(cas.AccountId, new List<Case>());
+                } {
+                    accountToCase.get(cas.AccountId).add(cas);
+                }
+            }
+        }
+    }
+    for(Id accId:accountIdSet){
+        if(accountToCase.containsKey(accId)){
+            system.debug('Testttttt');
+            Integer closedCount = accountToCase.get(accId).size();
+            Account acc = new Account();
+            acc.Id= accId;
+            if(closedCount<=2){
+                system.debug('Testttttt 111 '+closedCount);
+                acc.Rating='Cold';
+            }else if(closedCount>2){
+                system.debug('Testttttt 222 '+closedCount);
+                acc.Rating='Warm';
+            }else if(closedCount>5){
+                system.debug('Testttttt 333 '+closedCount);
+                acc.Rating='Hot';
+            }
+            acclisttoUpdate.add(acc); 
+        }
+        
+        
+    }
+    if(!acclisttoUpdate.isEmpty()){
+        update acclisttoUpdate;
+    }
+}
