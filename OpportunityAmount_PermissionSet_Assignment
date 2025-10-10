@@ -1,0 +1,75 @@
+//opp is created on the related account  AND if ispartner is true we want total revenue field on Account to be updated 
+//with sum of all close oppp amount AND assign the permission set to the owner of the opp.
+
+trigger OpportunitySum on Opportunity(after insert){
+    set<Id> accountIdSet = new set<Id>();
+    map<Id,Decimal> accToOpp = new Map<Id,Decimal>();
+    list<Account> accToUpdate = new List<Account>();
+    set<Id> oppOwner = new set<Id>();
+    for(opportunity opp:trigger.new){
+        if(opp.AccountId!= Null){
+            accountIdSet.add(opp.AccountId);
+        }
+        if(opp.OwnerId!= Null){
+            oppOwner.add(opp.OwnerId);
+        }
+    }
+    if(!oppOwner.isEmpty()){
+        MixedDmlClass.avoidmixedDml(oppOwner);
+    }
+    if(!accountIdSet.isEmpty()){
+        List<AggregateResult> aggReslt = [SELECT AccountId, sum(Amount) oppamt From Opportunity
+                                          Where AccountId IN:accountIdSet  AND StageName = 'Closed Won' AND Account.Active__c ='Yes' GROUP BY AccountId ];
+        
+        if(!aggReslt.isEmpty()){
+            for(AggregateResult agg:aggReslt){
+                accToOpp.put((Id)agg.get('AccountId'), (Decimal)agg.get('oppamt'));
+            }
+        }
+    }
+    for(Id accId: accountIdSet){
+        if(accToOpp.containsKey(accId)){
+            Account acc = new Account();
+            acc.Id = accId;
+            acc.Amount__c = accToOpp.get(accId);
+            accToUpdate.add(acc);
+        }
+    }
+    if(!accToUpdate.isEmpty()){
+        update accToUpdate;
+    }
+    
+   
+}
+
+
+
+Future Method: 
+
+
+public class MixedDmlClass {
+    @future
+    public static void avoidmixedDml(set<Id> OwnerId){
+        //set<Id> oppOwner = new set<Id>();
+        List<PermissionSetAssignment> psaList = new List<PermissionSetAssignment>();
+        //Assigning the permission set Part
+        if(!OwnerId.isEmpty()){
+            List<Permissionset> permissionSetList = [SELECT Id, Name from PermissionSet Where Name = 'TCS_Trigger_PS' AND PermissionSetGroupId = NULL];
+            system.debug('permissionSetList '+ permissionSetList.size());
+            permissionset ps;
+            if(!permissionSetList.isEmpty()){
+                ps = permissionSetList[0]; 
+            }
+            
+            for(Id userId:OwnerId){
+                PermissionSetAssignment psassignment = new PermissionSetAssignment();
+                psassignment.AssigneeId = userId;
+                psassignment.PermissionSetId =  ps.Id;
+                psaList.add(psassignment);
+            }
+        }
+        if(!psaList.isEmpty()){
+            insert psaList;
+        }
+    }
+}
